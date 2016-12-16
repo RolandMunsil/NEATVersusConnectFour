@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:NEATVersusConnectFour"
         mc:Ignorable="d"
         Title="MainWindow" Height="720" Width="1280">
-    <Grid>
+    <Grid x:Name="mainGrid">
         <Button x:Name="startNEATButton" Content="Fight!" HorizontalAlignment="Left" Height="96" Margin="1108,452,0,0" VerticalAlignment="Top" Width="135" Click="startNEATButton_Click"/>
         <TextBlock x:Name="textBlock" HorizontalAlignment="Left" Height="379" Margin="977,49,-0.667,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="297"/>
         <Canvas x:Name="plotCanvas" HorizontalAlignment="Left" Height="265" Margin="611,90,0,0" VerticalAlignment="Top" Width="262"/>

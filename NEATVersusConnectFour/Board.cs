@@ -59,6 +59,11 @@ namespace NEATVersusConnectFour
             return nextSpotInColumn[column] >= 0;
         }
 
+        public int RowWhereDiscWillBeAdded(int column)
+        {
+            return nextSpotInColumn[column] / NUM_COLS;
+        }
+
         /// <returns>0 if no winner, 1 or -1 if there is a winner</returns>
         public double AddDisc(double discColor, int column)
         {

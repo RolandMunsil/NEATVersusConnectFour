@@ -162,10 +162,127 @@ namespace NEATVersusConnectFour
             }
         }
 
+        double discSize = 50;
+        double discSpacing = 10;
+        double triangleHeight = 30;
+        Vector boardTopLeft = new Vector(100, 150);
+        Dictionary<object, int> polygonCols;
+
+        TextBlock winText;
+
+        Board board;
+        double curDiscType;
+        Ellipse[,] discs;
+
         private void playGameButton_Click(object sender, RoutedEventArgs e)
         {
-            //Construct circles
+            CreateBoardGUI();
 
+            board = new Board();
+            curDiscType = Board.YELLOW_DISC;
+        }
+
+        private void CreateBoardGUI()
+        {
+            polygonCols = new Dictionary<object, int>();
+
+            for (int c = 0; c < Board.NUM_COLS; c++)
+            {
+                Polygon polygon = new Polygon();
+                polygon.Fill = Brushes.SlateGray;
+                polygon.StrokeThickness = 0;
+                polygon.HorizontalAlignment = HorizontalAlignment.Left;
+                polygon.VerticalAlignment = VerticalAlignment.Top;
+                polygon.Points = new PointCollection()
+                {
+                    boardTopLeft + new Point(             c * (discSize + discSpacing), 0),
+                    boardTopLeft + new Point(discSize +   c * (discSize + discSpacing), 0),
+                    boardTopLeft + new Point(discSize/2 + c * (discSize + discSpacing), triangleHeight),
+                };
+
+                polygonCols.Add(polygon, c);
+                polygon.MouseUp += Triangle_MouseDown;
+                mainGrid.Children.Add(polygon);
+            }
+
+            discs = new Ellipse[Board.NUM_ROWS, Board.NUM_COLS];
+
+            //Construct circles
+            for (int r = 0; r < Board.NUM_ROWS; r++)
+            {
+                for (int c = 0; c < Board.NUM_COLS; c++)
+                {
+                    Ellipse disc = new Ellipse();
+                    disc.Height = discSize;
+                    disc.Width = discSize;
+                    disc.Fill = Brushes.LightGray;
+                    disc.StrokeThickness = 0;
+                    disc.HorizontalAlignment = HorizontalAlignment.Left;
+                    disc.VerticalAlignment = VerticalAlignment.Top;
+                    disc.Margin = new Thickness(boardTopLeft.X + c * (discSize + discSpacing),
+                                                boardTopLeft.Y + triangleHeight + discSpacing + r * (discSize + discSpacing),
+                                                0, 0);
+
+                    mainGrid.Children.Add(disc);
+                    discs[r, c] = disc;
+                }
+            }
+
+            winText = new TextBlock();
+            winText.Text = "";
+            winText.TextAlignment = TextAlignment.Center;
+            winText.HorizontalAlignment = HorizontalAlignment.Left;
+            winText.VerticalAlignment = VerticalAlignment.Top;
+            winText.FontSize = 48;
+
+            double boardWidth = (discSize * Board.NUM_COLS) + (discSpacing * (Board.NUM_COLS - 1));
+            double boardHeight = (discSize * Board.NUM_ROWS) + (discSpacing * (Board.NUM_ROWS - 1))
+                                 + triangleHeight + discSpacing;
+
+            winText.Width = boardWidth;
+            winText.Margin = new Thickness(boardTopLeft.X, boardTopLeft.Y + boardHeight / 2, 0, 0);
+
+            mainGrid.Children.Add(winText);
+        }
+
+        private void ResetBoardGUI()
+        {
+            for (int r = 0; r < Board.NUM_ROWS; r++)
+            {
+                for (int c = 0; c < Board.NUM_COLS; c++)
+                {
+                    discs[r, c].Fill = Brushes.LightGray;
+                }
+            }
+
+            winText.Text = "";
+        }
+
+        private void Triangle_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            int col = polygonCols[sender];
+            if (board.CanAddDisc(col))
+            {
+                int row = board.RowWhereDiscWillBeAdded(col);
+                double winner = board.AddDisc(curDiscType, col);
+                discs[row, col].Fill = curDiscType == Board.YELLOW_DISC ? Brushes.Yellow : Brushes.Red;
+
+                if (winner != 0)
+                {
+                    winText.Text = winner == Board.YELLOW_DISC ? "Yellow wins!" : "Red wins!";
+                    new Thread(delegate()
+                    {
+                        Thread.Sleep(1000);
+                        mainGrid.Dispatcher.BeginInvoke((Action)ResetBoardGUI);
+                        board = new Board();
+                        curDiscType = Board.YELLOW_DISC;
+
+                    }).Start();
+                    return;
+                }
+
+                curDiscType = -curDiscType;
+            }
         }
     }
 }
