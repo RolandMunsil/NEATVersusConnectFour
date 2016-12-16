@@ -5,8 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NEATVersusConnectFour"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Title="MainWindow" Height="720" Width="1280">
     <Grid>
-        
+        <Button x:Name="startNEATButton" Content="Fight!" HorizontalAlignment="Left" Height="96" Margin="1115,492,0,0" VerticalAlignment="Top" Width="135" Click="startNEATButton_Click"/>
+        <TextBlock x:Name="textBlock" HorizontalAlignment="Left" Height="379" Margin="873,38,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="362"/>
+
     </Grid>
 </Window>

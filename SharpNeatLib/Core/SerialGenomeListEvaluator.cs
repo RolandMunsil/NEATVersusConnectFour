@@ -137,10 +137,13 @@ namespace SharpNeat.Core
             foreach(TGenome genome in genomeList)
             {
                 TPhenome phenome = (TPhenome)genome.CachedPhenome;
-                if(null == phenome) 
-                {   // Decode the phenome and store a ref against the genome.
-                    phenome = _genomeDecoder.Decode(genome);
-                    genome.CachedPhenome = phenome;
+                lock (genome)
+                {
+                    if (null == phenome)
+                    {   // Decode the phenome and store a ref against the genome.
+                        phenome = _genomeDecoder.Decode(genome);
+                        genome.CachedPhenome = phenome;
+                    }
                 }
 
                 if(null == phenome)
