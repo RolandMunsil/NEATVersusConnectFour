@@ -12,8 +12,9 @@ namespace NEATVersusConnectFour
         public const double YELLOW_DISC = -1;
         public const double EMPTY = 0;
 
-        public const int numRows = 6;
-        public const int numCols = 7;
+        public const int NUM_ROWS = 6;
+        public const int NUM_COLS = 7;
+
         public double[] grid;
         private int[] nextSpotInColumn;
 
@@ -30,8 +31,8 @@ namespace NEATVersusConnectFour
 
             public Coord(int index)
             {
-                this.row = index / numCols;
-                this.col = index % numCols;
+                this.row = index / NUM_COLS;
+                this.col = index % NUM_COLS;
             }
         }
 
@@ -39,17 +40,17 @@ namespace NEATVersusConnectFour
         {
             get
             {
-                return grid[coord.col + coord.row * numCols];
+                return grid[coord.col + coord.row * NUM_COLS];
             }
         }
 
         public Board()
         {
-            grid = new double[numRows * numCols];
-            nextSpotInColumn = new int[numCols];
-            for (int c = 0; c < numCols; c++)
+            grid = new double[NUM_ROWS * NUM_COLS];
+            nextSpotInColumn = new int[NUM_COLS];
+            for (int c = 0; c < NUM_COLS; c++)
             {
-                nextSpotInColumn[c] = (numCols * (numRows - 1)) + c;
+                nextSpotInColumn[c] = (NUM_COLS * (NUM_ROWS - 1)) + c;
             }
         }
 
@@ -62,7 +63,7 @@ namespace NEATVersusConnectFour
         public double AddDisc(double discColor, int column)
         {
             int index = nextSpotInColumn[column];
-            nextSpotInColumn[column] -= numCols;
+            nextSpotInColumn[column] -= NUM_COLS;
             grid[index] = discColor;
 
             //Check for a winner
@@ -88,7 +89,7 @@ namespace NEATVersusConnectFour
             int leftCol = cur.col + 1;
 
             cur = newDiscCoord;
-            while (cur.col < numCols && this[cur] == discColor)
+            while (cur.col < NUM_COLS && this[cur] == discColor)
             {
                 cur.col++;
             }
@@ -106,7 +107,7 @@ namespace NEATVersusConnectFour
             int topRow = cur.row + 1;
 
             cur = newDiscCoord;
-            while (cur.row < numRows && this[cur] == discColor)
+            while (cur.row < NUM_ROWS && this[cur] == discColor)
             {
                 cur.row++;
             }
@@ -125,7 +126,7 @@ namespace NEATVersusConnectFour
             int low = cur.col + 1;
 
             cur = newDiscCoord;
-            while (cur.row < numRows && cur.col < numCols && this[cur] == discColor)
+            while (cur.row < NUM_ROWS && cur.col < NUM_COLS && this[cur] == discColor)
             {
                 cur.row++;
                 cur.col++;
@@ -137,7 +138,7 @@ namespace NEATVersusConnectFour
         private bool IsUpLeftDiagonalWin(Coord newDiscCoord, double discColor)
         {
             Coord cur = newDiscCoord;
-            while (cur.row < numRows && cur.col >= 0 && this[cur] == discColor)
+            while (cur.row < NUM_ROWS && cur.col >= 0 && this[cur] == discColor)
             {
                 cur.row++;
                 cur.col--;
@@ -145,7 +146,7 @@ namespace NEATVersusConnectFour
             int low = cur.col + 1;
 
             cur = newDiscCoord;
-            while (cur.row >= 0 && cur.col < numCols && this[cur] == discColor)
+            while (cur.row >= 0 && cur.col < NUM_COLS && this[cur] == discColor)
             {
                 cur.row--;
                 cur.col++;

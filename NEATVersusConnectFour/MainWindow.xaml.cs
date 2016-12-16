@@ -8,6 +8,7 @@ using SharpNeat.Phenomes;
 using SharpNeat.SpeciationStrategies;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -41,6 +42,8 @@ namespace NEATVersusConnectFour
 
         Dictionary<double, ManualResetEvent> finishedGeneratingEvents;
         Dictionary<double, AutoResetEvent> doneEvaluatingEvents;
+        Dictionary<double, AutoResetEvent> doneShowingStatsEvents;
+        Dictionary<double, AutoResetEvent> beginShowingStatsEvents;
         Dictionary<double, bool> isFirstUpdate;
 
         NeatEvolutionAlgorithm<NeatGenome> yellowTeam;
@@ -58,6 +61,16 @@ namespace NEATVersusConnectFour
                 [Board.YELLOW_DISC] = new AutoResetEvent(false),
                 [Board.RED_DISC] = new AutoResetEvent(false)
             };
+            doneShowingStatsEvents = new Dictionary<double, AutoResetEvent>()
+            {
+                [Board.YELLOW_DISC] = new AutoResetEvent(false),
+                [Board.RED_DISC] = new AutoResetEvent(false)
+            };
+            beginShowingStatsEvents = new Dictionary<double, AutoResetEvent>()
+            {
+                [Board.YELLOW_DISC] = new AutoResetEvent(false),
+                [Board.RED_DISC] = new AutoResetEvent(false)
+            };
             yellowTeam = GenerateTeam();
             redTeam = GenerateTeam();
 
@@ -68,6 +81,7 @@ namespace NEATVersusConnectFour
 
             yellowTeam.UpdateScheme = new UpdateScheme(1);
             redTeam.UpdateScheme = new UpdateScheme(1);
+            new Thread(ShowStats).Start();
 
             Thread startYellow = new Thread(() => yellowTeam.StartContinue());
             startYellow.Start();
@@ -109,22 +123,49 @@ namespace NEATVersusConnectFour
             //Set event that tells us that we're done evaluating genomes
             doneEvaluatingEvents[team].Set();
 
-            lock(textBlock)
-            {
-                NeatEvolutionAlgorithm<NeatGenome> alg = team == Board.YELLOW_DISC ? yellowTeam : redTeam;
-                AddLine($"{alg.CurrentGeneration}: {alg.Statistics._maxFitness}");
-            }
-
             //Wait for opponent to finish evaluating genomes
             doneEvaluatingEvents[-team].WaitOne();
+
+            beginShowingStatsEvents[team].Set();
+            doneShowingStatsEvents[team].WaitOne();
 
             //Reset the event that tells us when we're finished generating genomes
             finishedGeneratingEvents[team].Reset();
         }
 
-        private void AddLine(String text)
+        private void ShowStats()
         {
-            textBlock.Dispatcher.BeginInvoke((Action)(()=>textBlock.Text += text + "\r\n"));
+            while(true)
+            {
+                beginShowingStatsEvents[Board.YELLOW_DISC].WaitOne();
+                beginShowingStatsEvents[Board.RED_DISC].WaitOne();
+
+                if (redTeam.CurrentGeneration != yellowTeam.CurrentGeneration)
+                    Debugger.Break();
+
+                Dispatcher.Invoke(delegate ()
+                {
+                    textBlock.Text += $"R {redTeam.CurrentGeneration}: {redTeam.Statistics._meanFitness}\r\n";
+                    textBlock.Text += $"Y {yellowTeam.CurrentGeneration}: {yellowTeam.Statistics._meanFitness}\r\n";
+                    Line line = new Line();
+                    line.X1 = 0;
+                    line.X2 = 0;
+                    line.Y1 = 100;
+                    line.X2 = 30;
+                    line.StrokeThickness = 10;
+                    line.Stroke = Brushes.Black;
+                    plotCanvas.Children.Add(line);
+                });
+
+                doneShowingStatsEvents[Board.YELLOW_DISC].Set();
+                doneShowingStatsEvents[Board.RED_DISC].Set();
+            }
+        }
+
+        private void playGameButton_Click(object sender, RoutedEventArgs e)
+        {
+            //Construct circles
+
         }
     }
 }

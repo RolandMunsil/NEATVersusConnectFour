@@ -54,7 +54,7 @@ namespace NEATVersusConnectFour
 
             foreach(NeatGenome genome in opponentTeam.GenomeList)
             {
-                totalGames++;
+                
 
                 IBlackBox opponentPhenome = (IBlackBox)genome.CachedPhenome;
                 lock (genome)
@@ -65,80 +65,94 @@ namespace NEATVersusConnectFour
                         genome.CachedPhenome = phenome;
                     }
                 }
-                if(opponentPhenome == null)
+
+                double winner;
+                if(myTeam == Board.YELLOW_DISC)
                 {
-                    //Win because opponent can't play
+                    winner = PlayGame(phenome, opponentPhenome);
+                }
+                else
+                {
+                    winner = PlayGame(opponentPhenome, phenome);
+                }
+                totalGames++;
+                if (winner == myTeam)
                     wins++;
-                    continue;
-                }
-
-                Board board = new Board();
-
-                int curTurn = 0;
-                while (true)
-                {
-                    if (curTurn == (Board.numRows * Board.numCols))
-                    {
-                        //No more pieces to place - no one wins!
-                        break;
-                    }
-
-                    IBlackBox curPlayer;
-                    double curDiscColor;
-
-                    if ((curTurn % 2 == 0 && myTeam == Board.YELLOW_DISC) ||
-                        (curTurn % 2 == 1 && myTeam == Board.RED_DISC))
-                    {
-                        curPlayer = phenome;
-                        curDiscColor = myTeam;
-                    }
-                    else
-                    {
-                        curPlayer = opponentPhenome;
-                        curDiscColor = -myTeam;
-                    }
-
-                    double highestActivation = -1;
-                    int maxCol = -1;
-                    lock (curPlayer)
-                    {
-                        curPlayer.InputSignalArray.CopyFrom(board.grid, 0);
-                        curPlayer.Activate();
-
-                        for (int i = 0; i < curPlayer.OutputCount; i++)
-                        {
-                            double activation = curPlayer.OutputSignalArray[i];
-                            if (activation > highestActivation)
-                            {
-                                maxCol = i;
-                                highestActivation = activation;
-                            }
-                        }
-                    }
-
-                    if(!board.CanAddDisc(maxCol))
-                    {
-                        //Whoever is playing has lost
-                        if (curDiscColor == -myTeam)
-                            wins++;
-                        break;
-                    }
-                    double winner = board.AddDisc(curDiscColor, maxCol);
-                    if(winner != 0)
-                    {
-                        if (winner == -myTeam)
-                            wins++;
-                        break;
-                    }
-
-                    curTurn++;
-                }
             }
 
             EvaluationCount++;
 
             return new FitnessInfo(wins / (double)totalGames, wins);
             
+        }
+
+        private double PlayGame(IBlackBox yellowPlayer, IBlackBox redPlayer)
+        {
+            //Win because opponent can't play
+            if (yellowPlayer == null)
+            {
+                return Board.RED_DISC;
+            }
+            else if (redPlayer == null)
+            {
+                return Board.YELLOW_DISC;
+            }
+
+            Board board = new Board();
+
+            int curTurn = 0;
+            while (true)
+            {
+                if (curTurn == (Board.NUM_ROWS * Board.NUM_COLS))
+                {
+                    //No more pieces to place - no one wins!
+                    return 0;
+                }
+
+                IBlackBox curPlayer;
+                double curDiscColor;
+                if (curTurn % 2 == 0)
+                {
+                    curPlayer = yellowPlayer;
+                    curDiscColor = Board.YELLOW_DISC;
+                }
+                else
+                {
+                    curPlayer = redPlayer;
+                    curDiscColor = Board.RED_DISC;
+                }
+
+                double highestActivation = -1;
+                int maxCol = -1;
+                lock (curPlayer)
+                {
+                    curPlayer.InputSignalArray.CopyFrom(board.grid, 0);
+                    curPlayer.Activate();
+
+                    for (int i = 0; i < curPlayer.OutputCount; i++)
+                    {
+                        double activation = curPlayer.OutputSignalArray[i];
+                        if (activation > highestActivation)
+                        {
+                            maxCol = i;
+                            highestActivation = activation;
+                        }
+                    }
+                }
+
+                if (!board.CanAddDisc(maxCol))
+                {
+                    //Whoever is playing has lost
+                    return -curDiscColor;
+                }
+                double winner = board.AddDisc(curDiscColor, maxCol);
+                if (winner != 0)
+                {
+                    return winner;
+                }
+
+                curTurn++;
+            }
         }
 
         public void Reset()
