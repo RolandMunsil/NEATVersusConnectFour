@@ -50,12 +50,9 @@ namespace NEATVersusConnectFour
 
             //Play games against all opponents
             int wins = 0;
-            int totalGames = 0;
 
             foreach(NeatGenome genome in opponentTeam.GenomeList)
             {
-                
-
                 IBlackBox opponentPhenome = (IBlackBox)genome.CachedPhenome;
                 lock (genome)
                 {
@@ -75,14 +72,13 @@ namespace NEATVersusConnectFour
                 {
                     winner = PlayGame(opponentPhenome, phenome);
                 }
-                totalGames++;
                 if (winner == myTeam)
                     wins++;
             }
 
             EvaluationCount++;
 
-            return new FitnessInfo(wins / (double)totalGames, wins);
+            return new FitnessInfo(wins, 0);
             
         }
 
