@@ -52,6 +52,10 @@ namespace NEATVersusConnectFour
 
         private void DoNEAT()
         {
+            //TODO: try HyperNEAT - it seems like it would work better for this situation
+
+            mainGrid.Dispatcher.Invoke(CreateBoardGUI);
+
             finishedGeneratingEvents = new Dictionary<double, ManualResetEvent>()
             {
                 [Board.YELLOW_DISC] = new ManualResetEvent(false),
@@ -94,7 +98,7 @@ namespace NEATVersusConnectFour
         {
             NeatEvolutionAlgorithmParameters neatParams = new NeatEvolutionAlgorithmParameters();
 
-            IDistanceMetric distanceMetric = new ManhattanDistanceMetric(1.0, 0.0, 10.0);
+            IDistanceMetric distanceMetric = new ManhattanDistanceMetric(0.4, 1.0, 0.0);
             ISpeciationStrategy<NeatGenome> speciationStrategy = new ParallelKMeansClusteringStrategy<NeatGenome>(distanceMetric);
 
             IComplexityRegulationStrategy complexityStrategy = new NullComplexityRegulationStrategy();
@@ -106,11 +110,13 @@ namespace NEATVersusConnectFour
         {
             NeatGenomeParameters genomeParams = new NeatGenomeParameters();
             genomeParams.FeedforwardOnly = true;
+            //genomeParams.InitialInterconnectionsProportion = 1.0;
+
             IGenomeFactory<NeatGenome> genomeFactory = new NeatGenomeFactory(7 * 6, 7, genomeParams);
 
             IGenomeDecoder<NeatGenome, IBlackBox> decoder = new NeatGenomeDecoder(SharpNeat.Decoders.NetworkActivationScheme.CreateAcyclicScheme());
 
-            IGenomeListEvaluator<NeatGenome> evaluator = new SerialGenomeListEvaluator<NeatGenome, IBlackBox>(
+            IGenomeListEvaluator<NeatGenome> evaluator = new CacheFirstParallelGenomeListEvaluator<NeatGenome, IBlackBox>(
                 decoder, new ConnectFourEvaluator(teamDisc, opponent, decoder, finishedGeneratingEvents[teamDisc], finishedGeneratingEvents[-teamDisc]));
 
             ManualResetEvent finishedGeneratingEvent = finishedGeneratingEvents[teamDisc];
@@ -141,25 +147,60 @@ namespace NEATVersusConnectFour
                 beginShowingStatsEvents[Board.YELLOW_DISC].WaitOne();
                 beginShowingStatsEvents[Board.RED_DISC].WaitOne();
 
+                int bothPhenomesNull = (populationSize * populationSize) - ConnectFourEvaluator.playedGames.Count;
+                int redWins = 0;
+                int yellowWins = 0;
+                int ties = 0;
+
+                foreach (double d in ConnectFourEvaluator.playedGames.Values)
+                {
+                    if(d == Board.RED_DISC)
+                        redWins++;
+                    else if (d == Board.YELLOW_DISC)
+                        yellowWins++;
+                    else if (d == 0)
+                        ties++;
+                    else
+                        throw new Exception();
+                }
+
+#if DEBUG
+                List<IBlackBox> yellows = ConnectFourEvaluator.playedGames.Keys.Select(t => t.Item1).Distinct().ToList();
+                int numYellows = yellows.Count;
+                List<IBlackBox> reds = ConnectFourEvaluator.playedGames.Keys.Select(t => t.Item2).Distinct().ToList();
+                int numReds = reds.Count;
+                if (numYellows != 150)
+                    Debugger.Break();
+                if (numReds != 150)
+                    Debugger.Break();
+
+                if (bothPhenomesNull < 0)
+                    Debugger.Break();
+
+                if (redWins != redTeam.GenomeList.Sum(g => g.EvaluationInfo.Fitness))
+                    Debugger.Break();
+                if (yellowWins != yellowTeam.GenomeList.Sum(g => g.EvaluationInfo.Fitness))
+                    Debugger.Break();
+#endif
+
                 textBlock.Dispatcher.Invoke(delegate()
                 {
-                    textBlock.Text = $"Generation {redTeam.CurrentGeneration}\r\n" +
-                                     $"Yellow Avg Wins {Math.Round(yellowTeam.Statistics._meanFitness)}/{populationSize}\r\n" +
-                                     $"Red Avg Wins {Math.Round(redTeam.Statistics._meanFitness)}/{populationSize}\r\n" +
-                                     $"Yellow Max Wins {yellowTeam.Statistics._maxFitness}/{populationSize}\r\n" +
-                                     $"Red Max Wins {redTeam.Statistics._maxFitness}/{populationSize}\r\n" +
-                                     $"Yellow Avg Species Size {yellowTeam.Statistics._minSpecieSize}\r\n" +
-                                     $"Red Avg Species Size {redTeam.Statistics._minSpecieSize}\r\n";
+                    ClearText();
+                    AddTextLine($"Generation {redTeam.CurrentGeneration}");
+                    AddTextLine($"Yellow Avg Wins {Math.Round(yellowTeam.Statistics._meanFitness)}/{populationSize}");
+                    AddTextLine($"Red Avg Wins {Math.Round(redTeam.Statistics._meanFitness)}/{populationSize}");
+                    AddTextLine($"Yellow Max Wins {yellowTeam.Statistics._maxFitness}/{populationSize}");
+                    AddTextLine($"Red Max Wins {redTeam.Statistics._maxFitness}/{populationSize}");
+                    AddTextLine($"{yellowWins} | {redWins} | {ties}+{bothPhenomesNull}");
                 });
 
-                if (redTeam.CurrentGeneration % 50 == 0)
+                if (redTeam.CurrentGeneration % 20 == 0)
                 {
-                    if (discs == null)
-                        mainGrid.Dispatcher.Invoke(CreateBoardGUI);
-
                     VisualizeGame((IBlackBox)yellowTeam.CurrentChampGenome.CachedPhenome, (IBlackBox)redTeam.CurrentChampGenome.CachedPhenome);
                     Thread.Sleep(1000);
                 }
+
+                ConnectFourEvaluator.playedGames.Clear();
 
                 //textBlock.Text += $"R {redTeam.CurrentGeneration}: {redTeam.Statistics._meanFitness}\r\n";
                 //textBlock.Text += $"Y {yellowTeam.CurrentGeneration}: {yellowTeam.Statistics._meanFitness}\r\n";
@@ -177,6 +218,16 @@ namespace NEATVersusConnectFour
             }
         }
 
+        private void ClearText()
+        {
+            textBlock.Text = "";
+        }
+
+        private void AddTextLine(String line)
+        {
+            textBlock.Text += line + "\r\n";
+        }
+
         private void VisualizeGame(IBlackBox yellowPlayer, IBlackBox redPlayer)
         {
             //One of them can't play
@@ -187,42 +238,52 @@ namespace NEATVersusConnectFour
             curDiscColor = Board.YELLOW_DISC;
             mainGrid.Dispatcher.Invoke(ResetBoardGUI);
 
+            int curTurn = 0;
             while (true)
             {
-                IBlackBox curPlayer = curDiscColor == Board.YELLOW_DISC ? yellowPlayer : redPlayer;
-
-                double highestActivation = -1;
-                int maxCol = -1;
-                curPlayer.InputSignalArray.CopyFrom(board.grid, 0);
-                curPlayer.Activate();
-
-                for (int i = 0; i < curPlayer.OutputCount; i++)
+                if (curTurn == (Board.NUM_ROWS * Board.NUM_COLS))
                 {
-                    double activation = curPlayer.OutputSignalArray[i];
-                    if (activation > highestActivation)
-                    {
-                        maxCol = i;
-                        highestActivation = activation;
-                    }
-                }
-
-                if (!board.CanAddDisc(maxCol))
-                {
-                    //Whoever is playing has lost
+                    //No more pieces to place - no one wins!
                     winText.Dispatcher.Invoke((Action)delegate ()
                     {
-                        winText.Text = curDiscColor == Board.YELLOW_DISC ?
-                            $"Red won (because yellow tried to drop in column {maxCol}" :
-                            $"Yellow won (because red tried to drop in column {maxCol}";
+                        winText.Text = "Tie!";
                     });
                     return;
                 }
 
-                int row = board.RowWhereDiscWillBeAdded(maxCol);
-                double winner = board.AddDisc(curDiscColor, maxCol);
+                IBlackBox curPlayer = curDiscColor == Board.YELLOW_DISC ? yellowPlayer : redPlayer;
+
+                int colToAddAt = -1;
+
+                double[] outputs = new double[curPlayer.OutputCount];
+                curPlayer.OutputSignalArray.CopyTo(outputs, 0);
+                IEnumerable<int> orderedCols = outputs.Select((a, i) => Tuple.Create(a, i)).OrderByDescending(t => t.Item1).Select(t => t.Item2);
+                foreach (int col in orderedCols)
+                {
+                    if (board.CanAddDisc(col))
+                    {
+                        colToAddAt = col;
+                        break;
+                    }
+                }
+
+                //if (!board.CanAddDisc(colToAddAt))
+                //{
+                //    //Whoever is playing has lost
+                //    winText.Dispatcher.Invoke((Action)delegate ()
+                //    {
+                //        winText.Text = curDiscColor == Board.YELLOW_DISC ?
+                //            $"Red won (because yellow tried to drop in column {maxCol}" :
+                //            $"Yellow won (because red tried to drop in column {maxCol}";
+                //    });
+                //    return;
+                //}
+
+                int row = board.RowWhereDiscWillBeAdded(colToAddAt);
+                double winner = board.AddDisc(curDiscColor, colToAddAt);
                 mainGrid.Dispatcher.Invoke(delegate ()
                 {
-                    discs[row, maxCol].Fill = curDiscColor == Board.YELLOW_DISC ? Brushes.Yellow : Brushes.Red;
+                    discs[row, colToAddAt].Fill = curDiscColor == Board.YELLOW_DISC ? Brushes.Yellow : Brushes.Red;
                 });
 
                 if (winner != 0)
@@ -235,6 +296,7 @@ namespace NEATVersusConnectFour
                 }
                 Thread.Sleep(500);
                 curDiscColor = -curDiscColor;
+                curTurn++;
             }
         }
 
