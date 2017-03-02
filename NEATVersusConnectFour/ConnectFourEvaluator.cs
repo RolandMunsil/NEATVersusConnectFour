@@ -29,29 +29,21 @@ namespace NEATVersusConnectFour
             }
         }
 
-        ManualResetEvent meFinishedGenerating;
-        ManualResetEvent opponentFinishedGenerating;
         NeatEvolutionAlgorithm<NeatGenome> opponentTeam;
         IGenomeDecoder<NeatGenome, IBlackBox> genomeDecoder;
         double myTeam;
 
         public static Dictionary<Tuple<IBlackBox, IBlackBox>, double> playedGames = new Dictionary<Tuple<IBlackBox, IBlackBox>, double>();
 
-        public ConnectFourEvaluator(double myTeam, NeatEvolutionAlgorithm<NeatGenome> opponentTeam, IGenomeDecoder<NeatGenome, IBlackBox> genomeDecoder, ManualResetEvent meFinishedGenerating, ManualResetEvent opponentFinishedGenerating)
+        public ConnectFourEvaluator(double myTeam, NeatEvolutionAlgorithm<NeatGenome> opponentTeam, IGenomeDecoder<NeatGenome, IBlackBox> genomeDecoder)
         {
             this.myTeam = myTeam;
-            this.meFinishedGenerating = meFinishedGenerating;
-            this.opponentFinishedGenerating = opponentFinishedGenerating;
             this.opponentTeam = opponentTeam;
             this.genomeDecoder = genomeDecoder;
         }
 
         public FitnessInfo Evaluate(IBlackBox phenome)
         {
-            meFinishedGenerating.Set();
-            //Wait for opponent to finish generating genomes
-            opponentFinishedGenerating.WaitOne();
-
             //Play games against all opponents
             int wins = 0;
 

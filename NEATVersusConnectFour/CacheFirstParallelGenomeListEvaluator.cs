@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using SharpNeat.Core;
 using System;
+using System.Threading;
 
 namespace NEATVersusConnectFour
 {
@@ -19,6 +20,9 @@ namespace NEATVersusConnectFour
         readonly IGenomeDecoder<TGenome,TPhenome> _genomeDecoder;
         readonly IPhenomeEvaluator<TPhenome> _phenomeEvaluator;
         readonly ParallelOptions _parallelOptions;
+
+        static Barrier doneGeneratingGenomesBarrier = new Barrier(2);
+        static Barrier doneEvaluatingGenomesBarrier = new Barrier(2);
 
         #region Constructors
 
@@ -106,6 +110,8 @@ namespace NEATVersusConnectFour
                 }
             });
 
+            doneGeneratingGenomesBarrier.SignalAndWait();
+
             Parallel.ForEach(genomeList, _parallelOptions, delegate (TGenome genome)
             {
                 TPhenome phenome = (TPhenome)genome.CachedPhenome;
@@ -121,6 +127,8 @@ namespace NEATVersusConnectFour
                     genome.EvaluationInfo.AuxFitnessArr = fitnessInfo._auxFitnessArr;
                 }
             });
+
+            doneEvaluatingGenomesBarrier.SignalAndWait();
         }
 
         #endregion

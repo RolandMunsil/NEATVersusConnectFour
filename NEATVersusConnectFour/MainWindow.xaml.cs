@@ -40,10 +40,9 @@ namespace NEATVersusConnectFour
             (new Thread(DoNEAT)).Start();
         }
 
-        Dictionary<double, ManualResetEvent> finishedGeneratingEvents;
-        Dictionary<double, AutoResetEvent> doneEvaluatingEvents;
         Dictionary<double, AutoResetEvent> doneShowingStatsEvents;
-        Dictionary<double, AutoResetEvent> beginShowingStatsEvents;
+
+        Barrier doneEvaluatingGenerationBarrier;
 
         NeatEvolutionAlgorithm<NeatGenome> yellowTeam;
         NeatEvolutionAlgorithm<NeatGenome> redTeam;
@@ -56,22 +55,9 @@ namespace NEATVersusConnectFour
 
             mainGrid.Dispatcher.Invoke(CreateBoardGUI);
 
-            finishedGeneratingEvents = new Dictionary<double, ManualResetEvent>()
-            {
-                [Board.YELLOW_DISC] = new ManualResetEvent(false),
-                [Board.RED_DISC] = new ManualResetEvent(false)
-            };
-            doneEvaluatingEvents = new Dictionary<double, AutoResetEvent>()
-            {
-                [Board.YELLOW_DISC] = new AutoResetEvent(false),
-                [Board.RED_DISC] = new AutoResetEvent(false)
-            };
+            doneEvaluatingGenerationBarrier = new Barrier(2, (b)=>ShowStats());
+
             doneShowingStatsEvents = new Dictionary<double, AutoResetEvent>()
-            {
-                [Board.YELLOW_DISC] = new AutoResetEvent(false),
-                [Board.RED_DISC] = new AutoResetEvent(false)
-            };
-            beginShowingStatsEvents = new Dictionary<double, AutoResetEvent>()
             {
                 [Board.YELLOW_DISC] = new AutoResetEvent(false),
                 [Board.RED_DISC] = new AutoResetEvent(false)
@@ -86,7 +72,6 @@ namespace NEATVersusConnectFour
 
             yellowTeam.UpdateScheme = new UpdateScheme(1);
             redTeam.UpdateScheme = new UpdateScheme(1);
-            new Thread(ShowStats).Start();
 
             Thread startYellow = new Thread(() => yellowTeam.StartContinue());
             startYellow.Start();
@@ -117,105 +102,80 @@ namespace NEATVersusConnectFour
             IGenomeDecoder<NeatGenome, IBlackBox> decoder = new NeatGenomeDecoder(SharpNeat.Decoders.NetworkActivationScheme.CreateAcyclicScheme());
 
             IGenomeListEvaluator<NeatGenome> evaluator = new CacheFirstParallelGenomeListEvaluator<NeatGenome, IBlackBox>(
-                decoder, new ConnectFourEvaluator(teamDisc, opponent, decoder, finishedGeneratingEvents[teamDisc], finishedGeneratingEvents[-teamDisc]));
+                decoder, new ConnectFourEvaluator(teamDisc, opponent, decoder));
 
-            ManualResetEvent finishedGeneratingEvent = finishedGeneratingEvents[teamDisc];
             team.UpdateEvent += ((sender, eventArgs) => OnUpdate(teamDisc));
 
             team.Initialize(evaluator, genomeFactory, populationSize);
         }
 
+
         private void OnUpdate(double team)
         {
-            //Set event that tells us that we're done evaluating genomes
-            doneEvaluatingEvents[team].Set();
+            doneEvaluatingGenerationBarrier.SignalAndWait();
 
-            //Wait for opponent to finish evaluating genomes
-            doneEvaluatingEvents[-team].WaitOne();
-
-            beginShowingStatsEvents[team].Set();
             doneShowingStatsEvents[team].WaitOne();
-
-            //Reset the event that tells us when we're finished generating genomes
-            finishedGeneratingEvents[team].Reset();
         }
 
         private void ShowStats()
         {
-            while(true)
+            int bothPhenomesNull = (populationSize * populationSize) - ConnectFourEvaluator.playedGames.Count;
+            int redWins = 0;
+            int yellowWins = 0;
+            int ties = 0;
+
+            foreach (double d in ConnectFourEvaluator.playedGames.Values)
             {
-                beginShowingStatsEvents[Board.YELLOW_DISC].WaitOne();
-                beginShowingStatsEvents[Board.RED_DISC].WaitOne();
-
-                int bothPhenomesNull = (populationSize * populationSize) - ConnectFourEvaluator.playedGames.Count;
-                int redWins = 0;
-                int yellowWins = 0;
-                int ties = 0;
-
-                foreach (double d in ConnectFourEvaluator.playedGames.Values)
-                {
-                    if(d == Board.RED_DISC)
-                        redWins++;
-                    else if (d == Board.YELLOW_DISC)
-                        yellowWins++;
-                    else if (d == 0)
-                        ties++;
-                    else
-                        throw new Exception();
-                }
+                if(d == Board.RED_DISC)
+                    redWins++;
+                else if (d == Board.YELLOW_DISC)
+                    yellowWins++;
+                else if (d == 0)
+                    ties++;
+                else
+                    throw new Exception();
+            }
 
 #if DEBUG
-                List<IBlackBox> yellows = ConnectFourEvaluator.playedGames.Keys.Select(t => t.Item1).Distinct().ToList();
-                int numYellows = yellows.Count;
-                List<IBlackBox> reds = ConnectFourEvaluator.playedGames.Keys.Select(t => t.Item2).Distinct().ToList();
-                int numReds = reds.Count;
-                if (numYellows != 150)
-                    Debugger.Break();
-                if (numReds != 150)
-                    Debugger.Break();
+            List<IBlackBox> yellows = ConnectFourEvaluator.playedGames.Keys.Select(t => t.Item1).Distinct().ToList();
+            int numYellows = yellows.Count;
+            List<IBlackBox> reds = ConnectFourEvaluator.playedGames.Keys.Select(t => t.Item2).Distinct().ToList();
+            int numReds = reds.Count;
+            if (numYellows != 150)
+                Debugger.Break();
+            if (numReds != 150)
+                Debugger.Break();
 
-                if (bothPhenomesNull < 0)
-                    Debugger.Break();
+            if (bothPhenomesNull < 0)
+                Debugger.Break();
 
-                if (redWins != redTeam.GenomeList.Sum(g => g.EvaluationInfo.Fitness))
-                    Debugger.Break();
-                if (yellowWins != yellowTeam.GenomeList.Sum(g => g.EvaluationInfo.Fitness))
-                    Debugger.Break();
+            if (redWins != redTeam.GenomeList.Sum(g => g.EvaluationInfo.Fitness))
+                Debugger.Break();
+            if (yellowWins != yellowTeam.GenomeList.Sum(g => g.EvaluationInfo.Fitness))
+                Debugger.Break();
 #endif
 
-                textBlock.Dispatcher.Invoke(delegate()
-                {
-                    ClearText();
-                    AddTextLine($"Generation {redTeam.CurrentGeneration}");
-                    AddTextLine($"Yellow Avg Wins {Math.Round(yellowTeam.Statistics._meanFitness)}/{populationSize}");
-                    AddTextLine($"Red Avg Wins {Math.Round(redTeam.Statistics._meanFitness)}/{populationSize}");
-                    AddTextLine($"Yellow Max Wins {yellowTeam.Statistics._maxFitness}/{populationSize}");
-                    AddTextLine($"Red Max Wins {redTeam.Statistics._maxFitness}/{populationSize}");
-                    AddTextLine($"{yellowWins} | {redWins} | {ties}+{bothPhenomesNull}");
-                });
+            textBlock.Dispatcher.Invoke(delegate()
+            {
+                ClearText();
+                AddTextLine($"Generation {redTeam.CurrentGeneration}");
+                AddTextLine($"Yellow Avg Wins {Math.Round(yellowTeam.Statistics._meanFitness)}/{populationSize}");
+                AddTextLine($"Red Avg Wins {Math.Round(redTeam.Statistics._meanFitness)}/{populationSize}");
+                AddTextLine($"Yellow Max Wins {yellowTeam.Statistics._maxFitness}/{populationSize}");
+                AddTextLine($"Red Max Wins {redTeam.Statistics._maxFitness}/{populationSize}");
+                AddTextLine($"{yellowWins} | {redWins} | {ties}+{bothPhenomesNull}");
+            });
 
-                if (redTeam.CurrentGeneration % 20 == 0)
-                {
-                    VisualizeGame((IBlackBox)yellowTeam.CurrentChampGenome.CachedPhenome, (IBlackBox)redTeam.CurrentChampGenome.CachedPhenome);
-                    Thread.Sleep(1000);
-                }
-
-                ConnectFourEvaluator.playedGames.Clear();
-
-                //textBlock.Text += $"R {redTeam.CurrentGeneration}: {redTeam.Statistics._meanFitness}\r\n";
-                //textBlock.Text += $"Y {yellowTeam.CurrentGeneration}: {yellowTeam.Statistics._meanFitness}\r\n";
-                //Line line = new Line();
-                //line.X1 = 0;
-                //line.X2 = 0;
-                //line.Y1 = 100;
-                //line.X2 = 30;
-                //line.StrokeThickness = 10;
-                //line.Stroke = Brushes.Black;
-                //plotCanvas.Children.Add(line);
-
-                doneShowingStatsEvents[Board.YELLOW_DISC].Set();
-                doneShowingStatsEvents[Board.RED_DISC].Set();
+            if (redTeam.CurrentGeneration % 20 == 0)
+            {
+                VisualizeGame((IBlackBox)yellowTeam.CurrentChampGenome.CachedPhenome, (IBlackBox)redTeam.CurrentChampGenome.CachedPhenome);
+                Thread.Sleep(1000);
             }
+
+            ConnectFourEvaluator.playedGames.Clear();
+
+            doneShowingStatsEvents[Board.YELLOW_DISC].Set();
+            doneShowingStatsEvents[Board.RED_DISC].Set();
         }
 
         private void ClearText()
