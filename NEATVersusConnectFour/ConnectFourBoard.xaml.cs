@@ -22,10 +22,9 @@ namespace NEATVersusConnectFour
     /// </summary>
     public partial class ConnectFourBoard : UserControl
     {
-        double discSize = 50;
-        double discSpacing = 10;
-        double triangleHeight = 30;
-        Vector boardTopLeft = new Vector(100, 150);
+        const double discSize = 50;
+        const double discSpacing = 10;
+        const double triangleHeight = 30;
         Dictionary<object, int> polygonCols;
 
         TextBlock winText;
@@ -51,9 +50,9 @@ namespace NEATVersusConnectFour
                 polygon.VerticalAlignment = VerticalAlignment.Top;
                 polygon.Points = new PointCollection()
                 {
-                    boardTopLeft + new Point(             c * (discSize + discSpacing), 0),
-                    boardTopLeft + new Point(discSize +   c * (discSize + discSpacing), 0),
-                    boardTopLeft + new Point(discSize/2 + c * (discSize + discSpacing), triangleHeight),
+                    new Point(             c * (discSize + discSpacing), 0),
+                    new Point(discSize +   c * (discSize + discSpacing), 0),
+                    new Point(discSize/2 + c * (discSize + discSpacing), triangleHeight),
                 };
 
                 polygonCols.Add(polygon, c);
@@ -75,8 +74,8 @@ namespace NEATVersusConnectFour
                     disc.StrokeThickness = 0;
                     disc.HorizontalAlignment = HorizontalAlignment.Left;
                     disc.VerticalAlignment = VerticalAlignment.Top;
-                    disc.Margin = new Thickness(boardTopLeft.X + c * (discSize + discSpacing),
-                                                boardTopLeft.Y + triangleHeight + discSpacing + r * (discSize + discSpacing),
+                    disc.Margin = new Thickness(c * (discSize + discSpacing),
+                                                triangleHeight + discSpacing + r * (discSize + discSpacing),
                                                 0, 0);
 
                     grid.Children.Add(disc);
@@ -96,7 +95,7 @@ namespace NEATVersusConnectFour
                                  + triangleHeight + discSpacing;
 
             winText.Width = boardWidth;
-            winText.Margin = new Thickness(boardTopLeft.X, boardTopLeft.Y + boardHeight / 2, 0, 0);
+            winText.Margin = new Thickness(0, boardHeight / 2, 0, 0);
 
             grid.Children.Add(winText);
         }

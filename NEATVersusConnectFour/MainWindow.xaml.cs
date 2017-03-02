@@ -40,7 +40,10 @@ namespace NEATVersusConnectFour
             (new Thread(DoNEAT)).Start();
         }
 
-        Dictionary<double, AutoResetEvent> doneShowingStatsEvents;
+        private void playGameButton_Click(object sender, RoutedEventArgs e)
+        {
+            cfBoard.BeginGame();
+        }
 
         Barrier doneEvaluatingGenerationBarrier;
 
@@ -55,11 +58,6 @@ namespace NEATVersusConnectFour
 
             doneEvaluatingGenerationBarrier = new Barrier(2, (b)=>ShowStats());
 
-            doneShowingStatsEvents = new Dictionary<double, AutoResetEvent>()
-            {
-                [Board.YELLOW_DISC] = new AutoResetEvent(false),
-                [Board.RED_DISC] = new AutoResetEvent(false)
-            };
             yellowTeam = GenerateTeam();
             redTeam = GenerateTeam();
 
@@ -102,17 +100,15 @@ namespace NEATVersusConnectFour
             IGenomeListEvaluator<NeatGenome> evaluator = new CacheFirstParallelGenomeListEvaluator<NeatGenome, IBlackBox>(
                 decoder, new ConnectFourEvaluator(teamDisc, opponent, decoder));
 
-            team.UpdateEvent += ((sender, eventArgs) => OnUpdate(teamDisc));
+            team.UpdateEvent += ((sender, eventArgs) => OnUpdate());
 
             team.Initialize(evaluator, genomeFactory, populationSize);
         }
 
 
-        private void OnUpdate(double team)
+        private void OnUpdate()
         {
             doneEvaluatingGenerationBarrier.SignalAndWait();
-
-            doneShowingStatsEvents[team].WaitOne();
         }
 
         private void ShowStats()
@@ -171,9 +167,6 @@ namespace NEATVersusConnectFour
             }
 
             ConnectFourEvaluator.playedGames.Clear();
-
-            doneShowingStatsEvents[Board.YELLOW_DISC].Set();
-            doneShowingStatsEvents[Board.RED_DISC].Set();
         }
 
         private void ClearText()
@@ -184,11 +177,6 @@ namespace NEATVersusConnectFour
         private void AddTextLine(String line)
         {
             textBlock.Text += line + "\r\n";
-        }
-
-        private void playGameButton_Click(object sender, RoutedEventArgs e)
-        {
-            cfBoard.BeginGame();
         }
     }
 }
